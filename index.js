@@ -1,12 +1,12 @@
 const TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(process.env.TOKEN, { polling: true });
 
-let waiting = null;
+let waitingUser = null;
 let pairs = {};
-let users = {};
 let reports = {};
+let blocked = {};
 
-function mainMenu() {
+function menu() {
   return {
     reply_markup: {
       keyboard: [
@@ -14,7 +14,8 @@ function mainMenu() {
         ["🔄 Next", "❌ End"],
         ["🚫 Report"]
       ],
-      resize_keyboard: true
+      resize_keyboard: true,
+      one_time_keyboard: false
     }
   };
 }
@@ -23,30 +24,32 @@ function connect(u1, u2) {
   pairs[u1] = u2;
   pairs[u2] = u1;
 
-  bot.sendMessage(u1, "🎉 You're connected! Say hi 👋");
-  bot.sendMessage(u2, "🎉 You're connected! Say hi 👋");
+  bot.sendMessage(u1, "🎉 You're connected! Say hi 👋", menu());
+  bot.sendMessage(u2, "🎉 You're connected! Say hi 👋", menu());
 }
 
-function disconnect(user, auto = false) {
+function disconnect(user, autoSearch = false) {
   if (pairs[user]) {
     const partner = pairs[user];
+
     delete pairs[user];
     delete pairs[partner];
 
-    bot.sendMessage(partner, "❌ User left the chat.");
+    bot.sendMessage(partner, "❌ Stranger left.", menu());
 
-    if (auto) startSearch(partner);
+    if (autoSearch) {
+      startSearch(partner);
+    }
   }
 }
 
 function startSearch(id) {
-  bot.sendMessage(id, "⏳ Finding someone for you...", mainMenu());
-
-  if (waiting && waiting !== id) {
-    connect(id, waiting);
-    waiting = null;
+  if (waitingUser && waitingUser !== id) {
+    connect(id, waitingUser);
+    waitingUser = null;
   } else {
-    waiting = id;
+    waitingUser = id;
+    bot.sendMessage(id, "⏳ Finding someone for you...", menu());
   }
 }
 
@@ -54,9 +57,7 @@ bot.on("message", async (msg) => {
   const id = msg.chat.id;
   const text = msg.text;
 
-  if (!users[id]) users[id] = { blocked: false };
-
-  if (users[id].blocked) {
+  if (blocked[id]) {
     return bot.sendMessage(id, "🚫 You are blocked.");
   }
 
@@ -64,12 +65,15 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(
       id,
       "👋 Welcome to Anonymous Chat",
-      mainMenu()
+      menu()
     );
   }
 
   if (text === "💬 New Chat") {
-    startSearch(id);
+    if (pairs[id]) {
+      return bot.sendMessage(id, "⚠️ Already in chat.");
+    }
+    return startSearch(id);
   }
 
   if (text === "🔄 Next") {
@@ -78,24 +82,31 @@ bot.on("message", async (msg) => {
 
   if (text === "❌ End") {
     disconnect(id, false);
-    bot.sendMessage(id, "❌ Chat ended.", mainMenu());
+    bot.sendMessage(id, "❌ Chat ended.", menu());
   }
 
   if (text === "🚫 Report") {
     if (pairs[id]) {
       const partner = pairs[id];
       reports[partner] = (reports[partner] || 0) + 1;
+
       bot.sendMessage(id, "🚫 User reported.");
 
       if (reports[partner] >= 3) {
-        users[partner].blocked = true;
+        blocked[partner] = true;
         disconnect(partner, false);
         bot.sendMessage(partner, "🚫 You are blocked (3 reports).");
       }
     }
   }
 
-  if (pairs[id] && text && !text.startsWith("💬") && !text.startsWith("🔄") && !text.startsWith("❌") && !text.startsWith("🚫")) {
+  // Forward normal messages
+  if (pairs[id] && 
+      text !== "💬 New Chat" &&
+      text !== "🔄 Next" &&
+      text !== "❌ End" &&
+      text !== "🚫 Report") {
+
     await bot.sendChatAction(pairs[id], "typing");
     bot.sendMessage(pairs[id], text);
   }

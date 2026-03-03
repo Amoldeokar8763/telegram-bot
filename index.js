@@ -3,7 +3,7 @@ const ADMIN_ID = 7479846101;
 const TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(process.env.TOKEN, { polling: true });
 
-console.log("🔥 RANDOM MATCH VERSION RUNNING");
+console.log("🔥 FINAL VERSION RUNNING");
 
 let totalUsers = new Set();
 let pairs = {};
@@ -14,29 +14,30 @@ let dailyUsers = new Set();
 let todayDate = new Date().toDateString();
 
 let waitingUsers = [];
+let connectionTime = {};
 
+// 🔥 UPDATED DYNAMIC MENU
 function mainMenu(userId) {
-if (userId === ADMIN_ID) {
-return {
-reply_markup: {
-keyboard: [
-["💬 New Chat"],
-["🔄 Next", "❌ End"],
-["🚫 Report"],
-["📊 Admin Panel"]
-],
-resize_keyboard: true
+
+let keyboard = [];
+
+if (pairs[userId]) {
+// User chatting me hai
+keyboard.push(["🔄 Next", "❌ End"]);
+keyboard.push(["🚫 Report"]);
+} else {
+// User chatting me nahi hai
+keyboard.push(["💬 New Chat"]);
 }
-};
+
+// Admin button add
+if (userId === ADMIN_ID) {
+keyboard.push(["📊 Admin Panel"]);
 }
 
 return {
 reply_markup: {
-keyboard: [
-["💬 New Chat"],
-["🔄 Next", "❌ End"],
-["🚫 Report"]
-],
+keyboard: keyboard,
 resize_keyboard: true
 }
 };
@@ -61,6 +62,9 @@ function connect(u1, u2) {
 pairs[u1] = u2;
 pairs[u2] = u1;
 
+connectionTime[u1] = Date.now();
+connectionTime[u2] = Date.now();
+
 bot.sendMessage(u1, "🎉 You're connected! Say hi 👋", mainMenu(u1));
 bot.sendMessage(u2, "🎉 You're connected! Say hi 👋", mainMenu(u2));
 }
@@ -71,6 +75,9 @@ const partner = pairs[id];
 delete pairs[id];
 delete pairs[partner];
 
+delete connectionTime[id];
+delete connectionTime[partner];
+
 bot.sendMessage(partner, "❌ Stranger left.", mainMenu(partner));
 }
 }
@@ -78,23 +85,20 @@ bot.sendMessage(partner, "❌ Stranger left.", mainMenu(partner));
 function startSearch(id) {
 bot.sendMessage(id, "⏳ Finding someone for you...");
 
-// Remove if already waiting
 waitingUsers = waitingUsers.filter(user => user !== id);
 
 if (waitingUsers.length > 0) {
-
 const randomIndex = Math.floor(Math.random() * waitingUsers.length);
 const partner = waitingUsers[randomIndex];
-
 waitingUsers.splice(randomIndex, 1);
 connect(id, partner);
-
 } else {
 waitingUsers.push(id);
 }
 }
 
 bot.on("message", async (msg) => {
+
 const id = msg.chat.id;
 const text = msg.text;
 
@@ -105,7 +109,6 @@ if (currentDate !== todayDate) {
 dailyUsers.clear();
 todayDate = currentDate;
 }
-
 dailyUsers.add(id);
 
 if (bannedUsers.has(id)) {
@@ -139,41 +142,6 @@ adminMenu()
 );
 }
 
-if (text === "📢 Broadcast" && id === ADMIN_ID) {
-adminMode = "broadcast";
-return bot.sendMessage(id, "Send message to broadcast:");
-}
-
-if (adminMode === "broadcast" && id === ADMIN_ID) {
-adminMode = null;
-totalUsers.forEach(userId => {
-bot.sendMessage(userId, "📢 Announcement:\n\n" + text);
-});
-return bot.sendMessage(id, "✅ Broadcast sent.", adminMenu());
-}
-
-if (text === "🚫 Ban User" && id === ADMIN_ID) {
-adminMode = "ban";
-return bot.sendMessage(id, "Send User ID to ban:");
-}
-
-if (adminMode === "ban" && id === ADMIN_ID) {
-bannedUsers.add(Number(text));
-adminMode = null;
-return bot.sendMessage(id, "✅ User banned.", adminMenu());
-}
-
-if (text === "♻ Unban User" && id === ADMIN_ID) {
-adminMode = "unban";
-return bot.sendMessage(id, "Send User ID to unban:");
-}
-
-if (adminMode === "unban" && id === ADMIN_ID) {
-bannedUsers.delete(Number(text));
-adminMode = null;
-return bot.sendMessage(id, "✅ User unbanned.", adminMenu());
-}
-
 if (text === "🔙 Back") {
 adminMode = null;
 return bot.sendMessage(id, "Main Menu", mainMenu(id));
@@ -183,7 +151,7 @@ if (text === "/start") {
 return bot.sendMessage(id, "👋 Welcome to Anonymous Chat", mainMenu(id));
 }
 
-// RANDOM MATCH LOGIC
+/* ================= RANDOM MATCH LOGIC ================= */
 
 if (text === "💬 New Chat") {
 
@@ -196,8 +164,12 @@ return startSearch(id);
 
 if (text === "🔄 Next") {
 
-// If chatting → auto disconnect + new match
 if (pairs[id]) {
+
+if (Date.now() - connectionTime[id] < 5000) {
+return bot.sendMessage(id, "⏳ Please wait 5 seconds before skipping.");
+}
+
 disconnect(id);
 }
 
@@ -205,8 +177,18 @@ return startSearch(id);
 }
 
 if (text === "❌ End") {
+
+if (pairs[id]) {
+
+if (Date.now() - connectionTime[id] < 5000) {
+return bot.sendMessage(id, "⏳ You cannot end chat within 5 seconds.");
+}
+
 disconnect(id);
+}
+
 waitingUsers = waitingUsers.filter(user => user !== id);
+
 return bot.sendMessage(id, "❌ Chat ended.", mainMenu(id));
 }
 
@@ -219,4 +201,5 @@ if (pairs[id]) {
 await bot.sendChatAction(pairs[id], "typing");
 bot.sendMessage(pairs[id], text);
 }
+
 });

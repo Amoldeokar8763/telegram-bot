@@ -1,7 +1,8 @@
+const ADMIN_ID = 123456789; // yaha apna telegram id daalo
+
 console.log("🔥 NEW VERSION RUNNING");
 const TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(process.env.TOKEN, { polling: true });
-
 let waitingMale = null;
 let waitingFemale = null;
 let pairs = {};

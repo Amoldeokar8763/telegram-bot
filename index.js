@@ -75,6 +75,19 @@ bot.on("message", async (msg) => {
   const id = msg.chat.id;
   const text = msg.text;
 
+  if (text === "/stats") {
+  if (id !== ADMIN_ID) {
+    return bot.sendMessage(id, "⛔ Not authorized.");
+  }
+
+  return bot.sendMessage(
+    id,
+    "📊 Bot Stats\n\n" +
+    "👥 Total Users: " + totalUsers.size + "\n" +
+    "💬 Active Chats: " + Object.keys(pairs).length / 2
+  );
+}
+
   if (!users[id]) {
     users[id] = { gender: null, reports: 0 };
     totalUsers.add(id);

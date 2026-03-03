@@ -89,6 +89,20 @@ function startSearch(id) {
 bot.on("message", async (msg) => {
   const id = msg.chat.id;
   const text = msg.text;
+  
+  if (text === "📊 Admin Panel") {
+  if (id !== ADMIN_ID) {
+    return bot.sendMessage(id, "⛔ Not authorized.");
+  }
+
+  return bot.sendMessage(
+    id,
+    "📊 Admin Stats\n\n" +
+    "👥 Total Users: " + totalUsers.size + "\n" +
+    "💬 Active Chats: " + Object.keys(pairs).length / 2,
+    mainMenu(id)
+  );
+  }
 
   if (text === "/stats") {
   if (id !== ADMIN_ID) {
@@ -112,7 +126,7 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(
       id,
       "👋 Welcome to Anonymous Chat\nSet your gender in Profile.",
-      mainMenu()
+      mainMenu(id)
     );
   }
 
@@ -150,7 +164,7 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(
       id,
       "👥 Total Users: " + totalUsers.size,
-      mainMenu()
+      mainMenu(id)
     );
   }
 
@@ -196,3 +210,4 @@ bot.on("message", async (msg) => {
     bot.sendMessage(pairs[id], text);
   }
 });
+    

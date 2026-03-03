@@ -240,3 +240,4 @@ bot.on("message", async (msg) => {
     bot.sendMessage(pairs[id], text);
   }
 });
+  

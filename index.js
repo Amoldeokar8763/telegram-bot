@@ -1,4 +1,4 @@
-const ADMIN_ID = 123456789; // yaha apna telegram id daalo
+const ADMIN_ID = 7479846101;
 
 console.log("🔥 NEW VERSION RUNNING");
 const TelegramBot = require('node-telegram-bot-api');

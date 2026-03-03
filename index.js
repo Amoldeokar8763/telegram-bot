@@ -14,7 +14,7 @@ function mainMenu() {
     reply_markup: {
       keyboard: [
         ["💬 New Chat"],
-        ["👤 Profile", "📊 Users"],
+        ["👤 Profile"],
         ["🔄 Next", "❌ End"],
         ["🚫 Report"]
       ],

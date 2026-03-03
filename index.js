@@ -9,12 +9,27 @@ let pairs = {};
 let users = {};
 let totalUsers = new Set();
 
-function mainMenu() {
+function mainMenu(userId) {
+
+  if (userId === ADMIN_ID) {
+    return {
+      reply_markup: {
+        keyboard: [
+          ["💬 New Chat"],
+          ["🔄 Next", "❌ End"],
+          ["🚫 Report"],
+          ["📊 Admin Panel"]
+        ],
+        resize_keyboard: true
+      }
+    };
+  }
+
+  // Normal users
   return {
     reply_markup: {
       keyboard: [
         ["💬 New Chat"],
-        ["👤 Profile"],
         ["🔄 Next", "❌ End"],
         ["🚫 Report"]
       ],

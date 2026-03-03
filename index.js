@@ -10,6 +10,9 @@ let pairs = {};
 let bannedUsers = new Set();
 let adminMode = null;
 
+let dailyUsers = new Set();
+let todayDate = new Date().toDateString();
+
 let waitingMale = null;
 let waitingFemale = null;
 
@@ -100,6 +103,16 @@ bot.on("message", async (msg) => {
 
   totalUsers.add(id);
 
+  // Daily reset check
+  const currentDate = new Date().toDateString();
+  if (currentDate !== todayDate) {
+    dailyUsers.clear();
+    todayDate = currentDate;
+  }
+
+  // Add user to daily active
+  dailyUsers.add(id);
+
   if (bannedUsers.has(id)) {
     return bot.sendMessage(id, "🚫 You are banned.");
   }
@@ -110,31 +123,28 @@ bot.on("message", async (msg) => {
   }
 
   // ADMIN BACK
-  if (text === "🔙 Back") {
-    return bot.sendMessage(id, "Main Menu", mainMenu(id));
-  }
-
-  // BOT STATS
   if (text === "📊 Bot Stats" && id === ADMIN_ID) {
-    return bot.sendMessage(
-      id,
-      "📊 Bot Stats\n\n" +
-      "👥 Total Users: " + totalUsers.size + "\n" +
-      "💬 Active Chats: " + Object.keys(pairs).length / 2,
-      adminMenu()
-    );
-  }
+  return bot.sendMessage(
+    id,
+    "📊 Bot Stats\n\n" +
+    "👥 Total Users: " + totalUsers.size + "\n" +
+    "📅 Today Active: " + dailyUsers.size + "\n" +
+    "💬 Active Chats: " + Object.keys(pairs).length / 2,
+    adminMenu()
+  );
+}
 
   // LIVE STATUS
   if (text === "🟢 Live Status" && id === ADMIN_ID) {
-    return bot.sendMessage(
-      id,
-      "🟢 Live Status\n\n" +
-      "👥 Total Users: " + totalUsers.size + "\n" +
-      "💬 Active Chats: " + Object.keys(pairs).length / 2,
-      adminMenu()
-    );
-  }
+  return bot.sendMessage(
+    id,
+    "🟢 Live Status\n\n" +
+    "👥 Total Users: " + totalUsers.size + "\n" +
+    "📅 Today Active: " + dailyUsers.size + "\n" +
+    "💬 Active Chats: " + Object.keys(pairs).length / 2,
+    adminMenu()
+  );
+}
 
   // BROADCAST
   if (text === "📢 Broadcast" && id === ADMIN_ID) {

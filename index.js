@@ -16,7 +16,7 @@ let todayDate = new Date().toDateString();
 let waitingUsers = [];
 let connectionTime = {};
 
-// 🔥 UPDATED DYNAMIC MENU
+// 🔥 DYNAMIC MENU
 function mainMenu(userId) {
 
 let keyboard = [];
@@ -40,12 +40,15 @@ resize_keyboard: true
 };
 }
 
+// 🔥 UPDATED ADMIN MENU
 function adminMenu() {
 return {
 reply_markup: {
 keyboard: [
 ["📊 Bot Stats"],
 ["🟢 Live Status"],
+["👥 Users"],
+["✉ Message User"],
 ["📢 Broadcast"],
 ["🚫 Ban User", "♻ Unban User"],
 ["🔙 Back"]
@@ -112,12 +115,12 @@ if (bannedUsers.has(id)) {
 return bot.sendMessage(id, "🚫 You are banned.");
 }
 
-// ADMIN PANEL
+/* ================= ADMIN PANEL ================= */
+
 if (text === "📊 Admin Panel" && id === ADMIN_ID) {
 return bot.sendMessage(id, "⚙ Admin Control Panel", adminMenu());
 }
 
-// 📊 BOT STATS (Overall)
 if (text === "📊 Bot Stats" && id === ADMIN_ID) {
 return bot.sendMessage(
 id,
@@ -129,7 +132,6 @@ adminMenu()
 );
 }
 
-// 🟢 LIVE STATUS (Real-Time)
 if (text === "🟢 Live Status" && id === ADMIN_ID) {
 
 let activeChats = Object.keys(pairs).length / 2;
@@ -138,7 +140,7 @@ let onlineToday = dailyUsers.size;
 
 return bot.sendMessage(
 id,
-"🟢 LIVE STATUS (Real-Time)\n\n" +
+"🟢 LIVE STATUS\n\n" +
 "💬 Active Chats: " + activeChats + "\n" +
 "⏳ Waiting Users: " + waitingCount + "\n" +
 "🟢 Online Today: " + onlineToday,
@@ -146,16 +148,76 @@ adminMenu()
 );
 }
 
+// 👥 USERS LIST
+if (text === "👥 Users" && id === ADMIN_ID) {
+
+let list = [...totalUsers];
+
+if (list.length === 0) {
+return bot.sendMessage(id, "No users yet.", adminMenu());
+}
+
+let message = "👥 Users List:\n\n";
+list.forEach(u => message += u + "\n");
+
+return bot.sendMessage(id, message, adminMenu());
+}
+
+// PROFILE VIEW
+if (text && text.startsWith("/profile") && id === ADMIN_ID) {
+
+let userId = text.split(" ")[1];
+
+if (!userId) {
+return bot.sendMessage(id, "Usage: /profile USER_ID");
+}
+
+try {
+let photos = await bot.getUserProfilePhotos(userId);
+
+if (photos.total_count > 0) {
+let fileId = photos.photos[0][0].file_id;
+return bot.sendPhoto(id, fileId, { caption: "Profile of " + userId });
+} else {
+return bot.sendMessage(id, "User has no profile photo.");
+}
+} catch {
+return bot.sendMessage(id, "Cannot fetch profile.");
+}
+}
+
+// PRIVATE MESSAGE MODE
+if (text === "✉ Message User" && id === ADMIN_ID) {
+adminMode = "privateMessage";
+return bot.sendMessage(id, "Send like:\nUSER_ID message");
+}
+
+if (adminMode === "privateMessage" && id === ADMIN_ID) {
+
+adminMode = null;
+
+let parts = text.split(" ");
+let userId = parts[0];
+let msgText = parts.slice(1).join(" ");
+
+if (!userId || !msgText) {
+return bot.sendMessage(id, "Invalid format.");
+}
+
+try {
+await bot.sendMessage(userId, "⚠ Admin Warning:\n\n" + msgText);
+return bot.sendMessage(id, "✅ Message sent.", adminMenu());
+} catch {
+return bot.sendMessage(id, "❌ Cannot send message.", adminMenu());
+}
+}
+
 if (text === "🔙 Back") {
 adminMode = null;
 return bot.sendMessage(id, "Main Menu", mainMenu(id));
 }
 
-if (text === "/start") {
-return bot.sendMessage(id, "👋 Welcome to Anonymous Chat", mainMenu(id));
-}
-
-/* ================= RANDOM MATCH LOGIC ================= */
+/* ================= RANDOM MATCH ================= */
 
 if (text === "💬 New Chat") {
 

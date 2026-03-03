@@ -1,4 +1,9 @@
 const ADMIN_ID = 7479846101;
+let totalUsers = new Set();
+let pairs = {};
+let bannedUsers = new Set();
+
+let adminMode = null;
 
 console.log("🔥 NEW VERSION RUNNING");
 const TelegramBot = require('node-telegram-bot-api');
@@ -32,6 +37,21 @@ function mainMenu(userId) {
         ["💬 New Chat"],
         ["🔄 Next", "❌ End"],
         ["🚫 Report"]
+      ],
+      resize_keyboard: true
+    }
+  };
+}
+
+function adminMenu() {
+  return {
+    reply_markup: {
+      keyboard: [
+        ["📊 Bot Stats"],
+        ["📢 Broadcast"],
+        ["🚫 Ban User", "♻ Unban User"],
+        ["🟢 Live Status"],
+        ["🔙 Back"]
       ],
       resize_keyboard: true
     }
@@ -89,6 +109,79 @@ function startSearch(id) {
 bot.on("message", async (msg) => {
   const id = msg.chat.id;
   const text = msg.text;
+
+  if (bannedUsers.has(id)) {
+    return bot.sendMessage(id, "🚫 You are banned from using this bot.");
+  }
+
+  if (text === "📊 Admin Panel" && id === ADMIN_ID) {
+    return bot.sendMessage(id, "⚙ Admin Control Panel", adminMenu());
+  }
+
+  if (text === "📊 Bot Stats" && id === ADMIN_ID) {
+    return bot.sendMessage(
+      id,
+      "📊 Bot Stats\n\n" +
+      "👥 Total Users: " + totalUsers.size + "\n" +
+      "💬 Active Chats: " + Object.keys(pairs).length / 2,
+      adminMenu()
+    );
+  }
+
+  if (text === "🟢 Live Status" && id === ADMIN_ID) {
+    let activeChats = Object.keys(pairs).length / 2;
+    let waitingUsers = totalUsers.size - (activeChats * 2);
+
+    return bot.sendMessage(
+      id,
+      "🟢 Live Status\n\n" +
+      "👥 Total Users: " + totalUsers.size + "\n" +
+      "💬 Active Chats: " + activeChats + "\n" +
+      "⏳ Waiting Users: " + waitingUsers,
+      adminMenu()
+    );
+  }
+
+  if (text === "📢 Broadcast" && id === ADMIN_ID) {
+    adminMode = "broadcast";
+    return bot.sendMessage(id, "Send message to broadcast:");
+  }
+
+  if (adminMode === "broadcast" && id === ADMIN_ID) {
+    adminMode = null;
+
+    totalUsers.forEach(userId => {
+      bot.sendMessage(userId, "📢 Announcement:\n\n" + text);
+    });
+
+    return bot.sendMessage(id, "✅ Broadcast sent.", adminMenu());
+                           }
+
+  if (text === "🚫 Ban User" && id === ADMIN_ID) {
+    adminMode = "ban";
+    return bot.sendMessage(id, "Send User ID to ban:");
+  }
+
+  if (adminMode === "ban" && id === ADMIN_ID) {
+    bannedUsers.add(Number(text));
+    adminMode = null;
+    return bot.sendMessage(id, "✅ User banned.", adminMenu());
+  }
+
+  if (text === "♻ Unban User" && id === ADMIN_ID) {
+    adminMode = "unban";
+    return bot.sendMessage(id, "Send User ID to unban:");
+  }
+
+  if (adminMode === "unban" && id === ADMIN_ID) {
+    bannedUsers.delete(Number(text));
+    adminMode = null;
+    return bot.sendMessage(id, "✅ User unbanned.", adminMenu());
+  }
+
+  if (text === "🔙 Back") {
+    return bot.sendMessage(id, "Main Menu", mainMenu(id));
+  }
   
   if (text === "📊 Admin Panel") {
   if (id !== ADMIN_ID) {

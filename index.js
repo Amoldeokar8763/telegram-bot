@@ -7,7 +7,7 @@ let pairs = {};
 let users = {};
 let reports = {};
 
-function mainMenu() {
+function menu() {
   return {
     reply_markup: {
       inline_keyboard: [
@@ -27,48 +27,42 @@ function mainMenu() {
   };
 }
 
-function connectUsers(user1, user2) {
-  pairs[user1] = user2;
-  pairs[user2] = user1;
-
-  bot.sendMessage(user1, "✅ Connected to Stranger!");
-  bot.sendMessage(user2, "✅ Connected to Stranger!");
+function connect(u1, u2) {
+  pairs[u1] = u2;
+  pairs[u2] = u1;
+  bot.sendMessage(u1, "✅ Connected!");
+  bot.sendMessage(u2, "✅ Connected!");
 }
 
-function disconnect(userId, autoSearch = false) {
-  if (pairs[userId]) {
-    const partner = pairs[userId];
-
-    delete pairs[userId];
+function disconnect(user, auto = false) {
+  if (pairs[user]) {
+    const partner = pairs[user];
+    delete pairs[user];
     delete pairs[partner];
-
     bot.sendMessage(partner, "❌ Stranger left.");
-
-    if (autoSearch && users[partner]) {
-      startSearch(partner);
-    }
+    if (auto && users[partner]) startSearch(partner);
   }
 }
 
-function startSearch(userId) {
-  const gender = users[userId]?.gender;
-  bot.sendMessage(userId, "🔎 Searching for partner...");
+function startSearch(id) {
+  const gender = users[id]?.gender;
+  bot.sendMessage(id, "🔎 Searching for partner...");
 
   if (gender === "male") {
-    if (waitingFemale && waitingFemale !== userId) {
-      connectUsers(userId, waitingFemale);
+    if (waitingFemale && waitingFemale !== id) {
+      connect(id, waitingFemale);
       waitingFemale = null;
     } else {
-      waitingMale = userId;
+      waitingMale = id;
     }
   }
 
   if (gender === "female") {
-    if (waitingMale && waitingMale !== userId) {
-      connectUsers(userId, waitingMale);
+    if (waitingMale && waitingMale !== id) {
+      connect(id, waitingMale);
       waitingMale = null;
     } else {
-      waitingFemale = userId;
+      waitingFemale = id;
     }
   }
 }
@@ -83,7 +77,7 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(
       id,
       "👋 Welcome to Anonymous Chat\n\nSelect your gender:",
-      mainMenu()
+      menu()
     );
   }
 
@@ -109,21 +103,18 @@ bot.on("callback_query", async (query) => {
   }
 
   if (data === "stop") {
-    disconnect(id, false);
-    bot.sendMessage(id, "⛔ Chat ended.", mainMenu());
+    disconnect(id);
+    bot.sendMessage(id, "⛔ Chat ended.", menu());
   }
 
   if (data === "report") {
     if (pairs[id]) {
       const partner = pairs[id];
-
       reports[partner] = (reports[partner] || 0) + 1;
-
-      bot.sendMessage(id, "🚫 User reported.");
-
+      bot.sendMessage(id, "🚫 Reported.");
       if (reports[partner] >= 3) {
-        disconnect(partner, false);
-        bot.sendMessage(partner, "🚫 You are temporarily blocked (3 reports).");
+        disconnect(partner);
+        bot.sendMessage(partner, "🚫 Blocked (3 reports).");
       }
     }
   }

@@ -184,6 +184,11 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(id, "✅ User unbanned.", adminMenu());
   }
 
+  if (text === "🔙 Back") {
+  adminMode = null;
+  return bot.sendMessage(id, "Main Menu", mainMenu(id));
+  }
+
   // START
   if (text === "/start") {
     return bot.sendMessage(id, "👋 Welcome to Anonymous Chat", mainMenu(id));

@@ -16,7 +16,8 @@ let todayDate = new Date().toDateString();
 let waitingUsers = [];
 let connectionTime = {};
 
-// 🔥 DYNAMIC MENU
+/* ================= MENU ================= */
+
 function mainMenu(userId) {
 
 let keyboard = [];
@@ -40,7 +41,6 @@ resize_keyboard: true
 };
 }
 
-// 🔥 UPDATED ADMIN MENU
 function adminMenu() {
 return {
 reply_markup: {
@@ -48,7 +48,6 @@ keyboard: [
 ["📊 Bot Stats"],
 ["🟢 Live Status"],
 ["👥 Users"],
-["✉ Message User"],
 ["📢 Broadcast"],
 ["🚫 Ban User", "♻ Unban User"],
 ["🔙 Back"]
@@ -57,6 +56,8 @@ resize_keyboard: true
 }
 };
 }
+
+/* ================= MATCH SYSTEM ================= */
 
 function connect(u1, u2) {
 pairs[u1] = u2;
@@ -72,6 +73,7 @@ bot.sendMessage(u2, "🎉 You're connected! Say hi 👋", mainMenu(u2));
 function disconnect(id) {
 if (pairs[id]) {
 const partner = pairs[id];
+
 delete pairs[id];
 delete pairs[partner];
 
@@ -97,13 +99,18 @@ waitingUsers.push(id);
 }
 }
 
+/* ================= MESSAGE HANDLER ================= */
+
 bot.on("message", async (msg) => {
 
 const id = msg.chat.id;
 const text = msg.text;
 
+if (!text) return;
+
 totalUsers.add(id);
 
+// daily reset
 const currentDate = new Date().toDateString();
 if (currentDate !== todayDate) {
 dailyUsers.clear();
@@ -134,87 +141,60 @@ adminMenu()
 
 if (text === "🟢 Live Status" && id === ADMIN_ID) {
 
-let activeChats = Object.keys(pairs).length / 2;
-let waitingCount = waitingUsers.length;
-let onlineToday = dailyUsers.size;
-
 return bot.sendMessage(
 id,
 "🟢 LIVE STATUS\n\n" +
-"💬 Active Chats: " + activeChats + "\n" +
-"⏳ Waiting Users: " + waitingCount + "\n" +
-"🟢 Online Today: " + onlineToday,
+"💬 Active Chats: " + Object.keys(pairs).length / 2 + "\n" +
+"⏳ Waiting Users: " + waitingUsers.length + "\n" +
+"🟢 Online Today: " + dailyUsers.size,
 adminMenu()
 );
 }
 
-// 👥 USERS LIST
+/* ========= INLINE USERS PANEL ========= */
+
 if (text === "👥 Users" && id === ADMIN_ID) {
 
-let list = [...totalUsers];
+let users = [...totalUsers];
 
-if (list.length === 0) {
+if (users.length === 0) {
 return bot.sendMessage(id, "No users yet.", adminMenu());
 }
 
-let message = "👥 Users List:\n\n";
-list.forEach(u => message += u + "\n");
+for (let userId of users) {
 
-return bot.sendMessage(id, message, adminMenu());
-}
-
-// PROFILE VIEW
-if (text && text.startsWith("/profile") && id === ADMIN_ID) {
-
-let userId = text.split(" ")[1];
-
-if (!userId) {
-return bot.sendMessage(id, "Usage: /profile USER_ID");
-}
-
-try {
-let photos = await bot.getUserProfilePhotos(userId);
-
-if (photos.total_count > 0) {
-let fileId = photos.photos[0][0].file_id;
-return bot.sendPhoto(id, fileId, { caption: "Profile of " + userId });
-} else {
-return bot.sendMessage(id, "User has no profile photo.");
-}
-} catch {
-return bot.sendMessage(id, "Cannot fetch profile.");
+await bot.sendMessage(
+id,
+"User ID: " + userId,
+{
+reply_markup: {
+inline_keyboard: [
+[
+{ text: "🖼 Profile", callback_data: "profile_" + userId },
+{ text: "✉ Warn", callback_data: "warn_" + userId }
+],
+[
+{ text: "🚫 Ban", callback_data: "ban_" + userId }
+]
+]
 }
 }
+);
 
-// PRIVATE MESSAGE MODE
-if (text === "✉ Message User" && id === ADMIN_ID) {
-adminMode = "privateMessage";
-return bot.sendMessage(id, "Send like:\nUSER_ID message");
 }
 
-if (adminMode === "privateMessage" && id === ADMIN_ID) {
-
-adminMode = null;
-
-let parts = text.split(" ");
-let userId = parts[0];
-let msgText = parts.slice(1).join(" ");
-
-if (!userId || !msgText) {
-return bot.sendMessage(id, "Invalid format.");
+return;
 }
 
-try {
-await bot.sendMessage(userId, "⚠ Admin Warning:\n\n" + msgText);
-return bot.sendMessage(id, "✅ Message sent.", adminMenu());
-} catch {
-return bot.sendMessage(id, "❌ Cannot send message.", adminMenu());
-}
-}
+/* ================= BACK ================= */
 
 if (text === "🔙 Back") {
 adminMode = null;
 return bot.sendMessage(id, "Main Menu", mainMenu(id));
+}
+
+if (text === "/start") {
+return bot.sendMessage(id, "👋 Welcome to Anonymous Chat", mainMenu(id));
 }
 
 /* ================= RANDOM MATCH ================= */
@@ -266,6 +246,78 @@ return bot.sendMessage(id, "🚫 User reported.", mainMenu(id));
 if (pairs[id]) {
 await bot.sendChatAction(pairs[id], "typing");
 bot.sendMessage(pairs[id], text);
+}
+
+});
+
+/* ================= CALLBACK HANDLER ================= */
+
+bot.on("callback_query", async (query) => {
+
+const data = query.data;
+const adminId = query.message.chat.id;
+
+if (adminId !== ADMIN_ID) return;
+
+// PROFILE
+if (data.startsWith("profile_")) {
+
+let userId = data.split("_")[1];
+
+try {
+let photos = await bot.getUserProfilePhotos(userId);
+
+if (photos.total_count > 0) {
+let fileId = photos.photos[0][0].file_id;
+await bot.sendPhoto(adminId, fileId, { caption: "Profile of " + userId });
+} else {
+await bot.sendMessage(adminId, "User has no profile photo.");
+}
+} catch {
+await bot.sendMessage(adminId, "Cannot fetch profile.");
+}
+}
+
+// WARN
+if (data.startsWith("warn_")) {
+
+let userId = data.split("_")[1];
+adminMode = "warn_" + userId;
+
+await bot.sendMessage(adminId, "Send warning message for user " + userId);
+}
+
+// BAN
+if (data.startsWith("ban_")) {
+
+let userId = data.split("_")[1];
+bannedUsers.add(Number(userId));
+
+await bot.sendMessage(adminId, "🚫 User " + userId + " banned.");
+}
+
+});
+
+// WARNING MESSAGE SEND
+bot.on("message", async (msg) => {
+
+if (!adminMode) return;
+
+const id = msg.chat.id;
+if (id !== ADMIN_ID) return;
+
+if (adminMode.startsWith("warn_")) {
+
+let userId = adminMode.split("_")[1];
+adminMode = null;
+
+try {
+await bot.sendMessage(userId, "⚠ Admin Warning:\n\n" + msg.text);
+await bot.sendMessage(id, "✅ Warning sent.");
+} catch {
+await bot.sendMessage(id, "❌ Cannot send warning.");
+}
+
 }
 
 });

@@ -22,15 +22,12 @@ function mainMenu(userId) {
 let keyboard = [];
 
 if (pairs[userId]) {
-// User chatting me hai
 keyboard.push(["🔄 Next", "❌ End"]);
 keyboard.push(["🚫 Report"]);
 } else {
-// User chatting me nahi hai
 keyboard.push(["💬 New Chat"]);
 }
 
-// Admin button add
 if (userId === ADMIN_ID) {
 keyboard.push(["📊 Admin Panel"]);
 }
@@ -48,9 +45,9 @@ return {
 reply_markup: {
 keyboard: [
 ["📊 Bot Stats"],
+["🟢 Live Status"],
 ["📢 Broadcast"],
 ["🚫 Ban User", "♻ Unban User"],
-["🟢 Live Status"],
 ["🔙 Back"]
 ],
 resize_keyboard: true
@@ -120,24 +117,31 @@ if (text === "📊 Admin Panel" && id === ADMIN_ID) {
 return bot.sendMessage(id, "⚙ Admin Control Panel", adminMenu());
 }
 
+// 📊 BOT STATS (Overall)
 if (text === "📊 Bot Stats" && id === ADMIN_ID) {
 return bot.sendMessage(
 id,
-"📊 Bot Stats\n\n" +
-"👥 Total Users: " + totalUsers.size + "\n" +
-"📅 Today Active: " + dailyUsers.size + "\n" +
+"📊 BOT STATS\n\n" +
+"👥 Total Users Ever: " + totalUsers.size + "\n" +
+"📅 Today Active Users: " + dailyUsers.size + "\n" +
 "💬 Active Chats: " + Object.keys(pairs).length / 2,
 adminMenu()
 );
 }
 
+// 🟢 LIVE STATUS (Real-Time)
 if (text === "🟢 Live Status" && id === ADMIN_ID) {
+
+let activeChats = Object.keys(pairs).length / 2;
+let waitingCount = waitingUsers.length;
+let onlineToday = dailyUsers.size;
+
 return bot.sendMessage(
 id,
-"🟢 Live Status\n\n" +
-"👥 Total Users: " + totalUsers.size + "\n" +
-"📅 Today Active: " + dailyUsers.size + "\n" +
-"💬 Active Chats: " + Object.keys(pairs).length / 2,
+"🟢 LIVE STATUS (Real-Time)\n\n" +
+"💬 Active Chats: " + activeChats + "\n" +
+"⏳ Waiting Users: " + waitingCount + "\n" +
+"🟢 Online Today: " + onlineToday,
 adminMenu()
 );
 }

@@ -2,21 +2,22 @@ console.log("🔥 NEW VERSION RUNNING");
 const TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(process.env.TOKEN, { polling: true });
 
-let waitingUser = null;
+let waitingMale = null;
+let waitingFemale = null;
 let pairs = {};
-let reports = {};
-let blocked = {};
+let users = {};
+let totalUsers = new Set();
 
-function menu() {
+function mainMenu() {
   return {
     reply_markup: {
       keyboard: [
         ["💬 New Chat"],
+        ["👤 Profile", "📊 Users"],
         ["🔄 Next", "❌ End"],
         ["🚫 Report"]
       ],
-      resize_keyboard: true,
-      one_time_keyboard: false
+      resize_keyboard: true
     }
   };
 }
@@ -25,32 +26,47 @@ function connect(u1, u2) {
   pairs[u1] = u2;
   pairs[u2] = u1;
 
-  bot.sendMessage(u1, "🎉 You're connected! Say hi 👋", menu());
-  bot.sendMessage(u2, "🎉 You're connected! Say hi 👋", menu());
+  bot.sendMessage(u1, "🎉 Connected! Say hi 👋", mainMenu());
+  bot.sendMessage(u2, "🎉 Connected! Say hi 👋", mainMenu());
 }
 
-function disconnect(user, autoSearch = false) {
-  if (pairs[user]) {
-    const partner = pairs[user];
-
-    delete pairs[user];
+function disconnect(id, auto = false) {
+  if (pairs[id]) {
+    const partner = pairs[id];
+    delete pairs[id];
     delete pairs[partner];
 
-    bot.sendMessage(partner, "❌ Stranger left.", menu());
+    bot.sendMessage(partner, "❌ Stranger left.", mainMenu());
 
-    if (autoSearch) {
-      startSearch(partner);
-    }
+    if (auto) startSearch(partner);
   }
 }
 
 function startSearch(id) {
-  if (waitingUser && waitingUser !== id) {
-    connect(id, waitingUser);
-    waitingUser = null;
-  } else {
-    waitingUser = id;
-    bot.sendMessage(id, "⏳ Finding someone for you...", menu());
+  const gender = users[id]?.gender;
+
+  if (!gender) {
+    return bot.sendMessage(id, "⚠️ Set gender first in Profile.");
+  }
+
+  bot.sendMessage(id, "⏳ Finding someone for you...");
+
+  if (gender === "male") {
+    if (waitingFemale && waitingFemale !== id) {
+      connect(id, waitingFemale);
+      waitingFemale = null;
+    } else {
+      waitingMale = id;
+    }
+  }
+
+  if (gender === "female") {
+    if (waitingMale && waitingMale !== id) {
+      connect(id, waitingMale);
+      waitingMale = null;
+    } else {
+      waitingFemale = id;
+    }
   }
 }
 
@@ -58,15 +74,54 @@ bot.on("message", async (msg) => {
   const id = msg.chat.id;
   const text = msg.text;
 
-  if (blocked[id]) {
-    return bot.sendMessage(id, "🚫 You are blocked.");
+  if (!users[id]) {
+    users[id] = { gender: null, reports: 0 };
+    totalUsers.add(id);
   }
 
   if (text === "/start") {
     return bot.sendMessage(
       id,
-      "👋 Welcome to Anonymous Chat",
-      menu()
+      "👋 Welcome to Anonymous Chat\nSet your gender in Profile.",
+      mainMenu()
+    );
+  }
+
+  if (text === "👤 Profile") {
+    return bot.sendMessage(
+      id,
+      "Select your gender:",
+      {
+        reply_markup: {
+          keyboard: [
+            ["👨 Set Male", "👩 Set Female"],
+            ["🔙 Back"]
+          ],
+          resize_keyboard: true
+        }
+      }
+    );
+  }
+
+  if (text === "👨 Set Male") {
+    users[id].gender = "male";
+    return bot.sendMessage(id, "✅ Gender set to Male.", mainMenu());
+  }
+
+  if (text === "👩 Set Female") {
+    users[id].gender = "female";
+    return bot.sendMessage(id, "✅ Gender set to Female.", mainMenu());
+  }
+
+  if (text === "🔙 Back") {
+    return bot.sendMessage(id, "Main Menu", mainMenu());
+  }
+
+  if (text === "📊 Users") {
+    return bot.sendMessage(
+      id,
+      "👥 Total Users: " + totalUsers.size,
+      mainMenu()
     );
   }
 
@@ -83,30 +138,30 @@ bot.on("message", async (msg) => {
 
   if (text === "❌ End") {
     disconnect(id, false);
-    bot.sendMessage(id, "❌ Chat ended.", menu());
+    bot.sendMessage(id, "❌ Chat ended.", mainMenu());
   }
 
   if (text === "🚫 Report") {
     if (pairs[id]) {
       const partner = pairs[id];
-      reports[partner] = (reports[partner] || 0) + 1;
+      users[partner].reports++;
 
       bot.sendMessage(id, "🚫 User reported.");
 
-      if (reports[partner] >= 3) {
-        blocked[partner] = true;
+      if (users[partner].reports >= 3) {
         disconnect(partner, false);
-        bot.sendMessage(partner, "🚫 You are blocked (3 reports).");
+        bot.sendMessage(partner, "🚫 Blocked (3 reports).");
       }
     }
   }
 
-  // Forward normal messages
-  if (pairs[id] && 
-      text !== "💬 New Chat" &&
-      text !== "🔄 Next" &&
-      text !== "❌ End" &&
-      text !== "🚫 Report") {
+  if (pairs[id] &&
+      !text.includes("💬") &&
+      !text.includes("👤") &&
+      !text.includes("📊") &&
+      !text.includes("🔄") &&
+      !text.includes("❌") &&
+      !text.includes("🚫")) {
 
     await bot.sendChatAction(pairs[id], "typing");
     bot.sendMessage(pairs[id], text);

@@ -27,7 +27,7 @@ if (pairs[userId]) {
     keyboard.push(["🚫 Report"]);
 } else {
     if (waitingUsers.includes(userId)) {
-        keyboard.push(["❌ Stop"]);   // STOP button
+        keyboard.push(["❌ Stop"]);
     } else {
         keyboard.push(["💬 New Chat"]);
     }
@@ -40,22 +40,6 @@ if (userId === ADMIN_ID) {
 return {
     reply_markup: {
         keyboard: keyboard,
-        resize_keyboard: true
-    }
-};
-}
-
-function adminMenu() {
-return {
-    reply_markup: {
-        keyboard: [
-            ["📊 Bot Stats"],
-            ["🟢 Live Status"],
-            ["👥 Users"],
-            ["📢 Broadcast"],
-            ["🚫 Ban User", "♻ Unban User"],
-            ["🔙 Back"]
-        ],
         resize_keyboard: true
     }
 };
@@ -97,12 +81,12 @@ bot.sendMessage(id, "⏳ Finding someone for you...", {
     }
 });
 
+// ensure no duplicate
 waitingUsers = waitingUsers.filter(user => user !== id);
 
+// match if available
 if (waitingUsers.length > 0) {
-    const randomIndex = Math.floor(Math.random() * waitingUsers.length);
-    const partner = waitingUsers[randomIndex];
-    waitingUsers.splice(randomIndex, 1);
+    const partner = waitingUsers.shift();
     connect(id, partner);
 } else {
     waitingUsers.push(id);
@@ -132,87 +116,19 @@ if (bannedUsers.has(id)) {
     return bot.sendMessage(id, "🚫 You are banned.");
 }
 
-/* ================= ADMIN PANEL ================= */
-
-if (text === "📊 Admin Panel" && id === ADMIN_ID) {
-    return bot.sendMessage(id, "⚙ Admin Control Panel", adminMenu());
-}
-
-if (text === "📊 Bot Stats" && id === ADMIN_ID) {
-    return bot.sendMessage(
-        id,
-        "📊 BOT STATS\n\n" +
-        "👥 Total Users Ever: " + totalUsers.size + "\n" +
-        "📅 Today Active Users: " + dailyUsers.size + "\n" +
-        "💬 Active Chats: " + Object.keys(pairs).length / 2,
-        adminMenu()
-    );
-}
-
-if (text === "🟢 Live Status" && id === ADMIN_ID) {
-
-    return bot.sendMessage(
-        id,
-        "🟢 LIVE STATUS\n\n" +
-        "💬 Active Chats: " + Object.keys(pairs).length / 2 + "\n" +
-        "⏳ Waiting Users: " + waitingUsers.length + "\n" +
-        "🟢 Online Today: " + dailyUsers.size,
-        adminMenu()
-    );
-}
-
-/* ================= USERS PANEL ================= */
-
-if (text === "👥 Users" && id === ADMIN_ID) {
-
-    let users = [...totalUsers];
-
-    if (users.length === 0) {
-        return bot.sendMessage(id, "No users yet.", adminMenu());
-    }
-
-    for (let userId of users) {
-
-        await bot.sendMessage(
-            id,
-            "User ID: " + userId,
-            {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "🖼 Profile", callback_data: "profile_" + userId },
-                            { text: "✉ Warn", callback_data: "warn_" + userId }
-                        ],
-                        [
-                            { text: "🚫 Ban", callback_data: "ban_" + userId }
-                        ]
-                    ]
-                }
-            }
-        );
-    }
-
-    return;
-}
-
-/* ================= BACK ================= */
-
-if (text === "🔙 Back") {
-    adminMode = null;
-    return bot.sendMessage(id, "Main Menu", mainMenu(id));
-}
+/* ================= START ================= */
 
 if (text === "/start") {
     return bot.sendMessage(id, "👋 Welcome to Anonymous Chat", mainMenu(id));
 }
 
-/* ================= STOP SEARCH (NEW FEATURE) ================= */
+/* ================= STOP (FIXED) ================= */
 
 if (text === "❌ Stop") {
 
     if (waitingUsers.includes(id)) {
         waitingUsers = waitingUsers.filter(user => user !== id);
-        return bot.sendMessage(id, "❌ Search stopped.", mainMenu(id));
+        return bot.sendMessage(id, "✅ Search stopped.", mainMenu(id));
     }
 
     if (pairs[id]) {
@@ -223,7 +139,7 @@ if (text === "❌ Stop") {
     return bot.sendMessage(id, "⚠ You are not searching.", mainMenu(id));
 }
 
-/* ================= RANDOM MATCH ================= */
+/* ================= NEW CHAT ================= */
 
 if (text === "💬 New Chat") {
 
@@ -234,12 +150,14 @@ if (text === "💬 New Chat") {
     return startSearch(id);
 }
 
+/* ================= NEXT ================= */
+
 if (text === "🔄 Next") {
 
     if (pairs[id]) {
 
         if (Date.now() - connectionTime[id] < 5000) {
-            return bot.sendMessage(id, "⏳ Please wait 5 seconds before skipping.");
+            return bot.sendMessage(id, "⏳ Please wait 5 seconds.");
         }
 
         disconnect(id);
@@ -248,12 +166,14 @@ if (text === "🔄 Next") {
     return startSearch(id);
 }
 
+/* ================= END ================= */
+
 if (text === "❌ End") {
 
     if (pairs[id]) {
 
         if (Date.now() - connectionTime[id] < 5000) {
-            return bot.sendMessage(id, "⏳ You cannot end chat within 5 seconds.");
+            return bot.sendMessage(id, "⏳ Wait before ending.");
         }
 
         disconnect(id);
@@ -263,6 +183,8 @@ if (text === "❌ End") {
 
     return bot.sendMessage(id, "❌ Chat ended.", mainMenu(id));
 }
+
+/* ================= REPORT ================= */
 
 if (text === "🚫 Report") {
     disconnect(id);
@@ -274,76 +196,6 @@ if (text === "🚫 Report") {
 if (pairs[id]) {
     await bot.sendChatAction(pairs[id], "typing");
     bot.sendMessage(pairs[id], text);
-}
-
-});
-
-/* ================= CALLBACK HANDLER ================= */
-
-bot.on("callback_query", async (query) => {
-
-const data = query.data;
-const adminId = query.message.chat.id;
-
-if (adminId !== ADMIN_ID) return;
-
-if (data.startsWith("profile_")) {
-
-    let userId = data.split("_")[1];
-
-    try {
-        let photos = await bot.getUserProfilePhotos(userId);
-
-        if (photos.total_count > 0) {
-            let fileId = photos.photos[0][0].file_id;
-            await bot.sendPhoto(adminId, fileId, { caption: "Profile of " + userId });
-        } else {
-            await bot.sendMessage(adminId, "User has no profile photo.");
-        }
-    } catch {
-        await bot.sendMessage(adminId, "Cannot fetch profile.");
-    }
-}
-
-if (data.startsWith("warn_")) {
-
-    let userId = data.split("_")[1];
-    adminMode = "warn_" + userId;
-
-    await bot.sendMessage(adminId, "Send warning message for user " + userId);
-}
-
-if (data.startsWith("ban_")) {
-
-    let userId = data.split("_")[1];
-    bannedUsers.add(Number(userId));
-
-    await bot.sendMessage(adminId, "🚫 User " + userId + " banned.");
-}
-
-});
-
-/* ================= WARNING SEND ================= */
-
-bot.on("message", async (msg) => {
-
-if (!adminMode) return;
-
-const id = msg.chat.id;
-if (id !== ADMIN_ID) return;
-
-if (adminMode.startsWith("warn_")) {
-
-    let userId = adminMode.split("_")[1];
-    adminMode = null;
-
-    try {
-        await bot.sendMessage(userId, "⚠ Admin Warning:\n\n" + msg.text);
-        await bot.sendMessage(id, "✅ Warning sent.");
-    } catch {
-        await bot.sendMessage(id, "❌ Cannot send warning.");
-    }
-
 }
 
 });
